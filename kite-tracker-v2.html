@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kite Tracker v2</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #000;
+            overflow: hidden;
+            touch-action: none;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #debugCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.3;
+        }
+        
+        #stats {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            color: #0f0;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            z-index: 1000;
+            max-width: 180px;
+            border: 2px solid #0f0;
+        }
+        
+        #stats div {
+            margin: 3px 0;
+        }
+        
+        #controls {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
+            align-items: center;
+        }
+        
+        .btn-row {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        
+        .btn.recording {
+            background: #f00;
+            color: #fff;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        #settings {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 10px;
+            border-radius: 8px;
+            border: 2px solid #0f0;
+            z-index: 1000;
+            max-width: 200px;
+        }
+        
+        #settings h3 {
+            color: #0f0;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+        
+        .setting-row {
+            margin: 8px 0;
+        }
+        
+        .setting-row label {
+            color: #0f0;
+            font-size: 11px;
+            display: block;
+            margin-bottom: 3px;
+        }
+        
+        .setting-row input[type="range"] {
+            width: 100%;
+        }
+        
+        .setting-row select {
+            width: 100%;
+            background: #000;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 5px;
+            border-radius: 4px;
+        }
+        
+        .toggle-btn {
+            background: #333;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            width: 100%;
+            cursor: pointer;
+        }
+        
+        .toggle-btn.active {
+            background: #0f0;
+            color: #000;
+        }
+        
+        #startScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            color: #fff;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        #startScreen h1 {
+            font-size: 28px;
+            margin-bottom: 15px;
+            color: #0f0;
+        }
+        
+        #startScreen p {
+            font-size: 14px;
+            margin-bottom: 20px;
+            max-width: 350px;
+            line-height: 1.4;
+        }
+        
+        #startBtn {
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 18px 45px;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="startScreen">
+        <h1>🪁 Kite Tracker v2</h1>
+        <p><strong>Improved tracking with motion detection!</strong></p>
+        <p>Point camera at launch area, tap Start Tracking, then launch your kite.</p>
+        <button id="startBtn">Start Camera</button>
+    </div>
+
+    <div id="container">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="debugCanvas"></canvas>
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <div id="stats">
+        <div><strong>STATUS:</strong> <span id="status">Ready</span></div>
+        <div><strong>FPS:</strong> <span id="fps">0</span></div>
+        <div><strong>Motion:</strong> <span id="motion">0</span></div>
+        <div><strong>Tracking:</strong> <span id="tracking">NO</span></div>
+        <div><strong>Objects:</strong> <span id="objectCount">0</span></div>
+    </div>
+
+    <div id="settings">
+        <h3>SETTINGS</h3>
+        
+        <div class="setting-row">
+            <label>Mode:</label>
+            <select id="modeSelect">
+                <option value="motion">Motion Detection</option>
+                <option value="color">Color Detection</option>
+                <option value="both">Both (Recommended)</option>
+            </select>
+        </div>
+        
+        <div class="setting-row">
+            <label>Sensitivity: <span id="sensValue">50</span></label>
+            <input type="range" id="sensitivity" min="10" max="100" value="50">
+        </div>
+        
+        <div class="setting-row">
+            <button class="toggle-btn" id="debugToggle">Debug View: OFF</button>
+        </div>
+        
+        <div class="setting-row">
+            <label>Color:</label>
+            <select id="colorSelect">
+                <option value="any">Any Bright Color</option>
+                <option value="orange">Orange/Red</option>
+                <option value="pink">Pink</option>
+                <option value="yellow">Yellow</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="controls">
+        <div class="btn-row">
+            <button class="btn" id="trackBtn">Start Tracking</button>
+            <button class="btn" id="resetBtn">Reset</button>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const debugCanvas = document.getElementById('debugCanvas');
+        const ctx = canvas.getContext('2d');
+        const debugCtx = debugCanvas.getContext('2d');
+        
+        let isTracking = false;
+        let showDebug = false;
+        let sensitivity = 50;
+        let trackMode = 'both';
+        let selectedColor = 'any';
+        let previousFrame = null;
+        let trails = [];
+        let frameCount = 0;
+        let lastFrameTime = Date.now();
+        
+        // Settings
+        document.getElementById('sensitivity').addEventListener('input', (e) => {
+            sensitivity = parseInt(e.target.value);
+            document.getElementById('sensValue').textContent = sensitivity;
+        });
+        
+        document.getElementById('modeSelect').addEventListener('change', (e) => {
+            trackMode = e.target.value;
+        });
+        
+        document.getElementById('colorSelect').addEventListener('change', (e) => {
+            selectedColor = e.target.value;
+        });
+        
+        document.getElementById('debugToggle').addEventListener('click', (e) => {
+            showDebug = !showDebug;
+            debugCanvas.style.display = showDebug ? 'block' : 'none';
+            e.target.textContent = `Debug View: ${showDebug ? 'ON' : 'OFF'}`;
+            e.target.classList.toggle('active', showDebug);
+        });
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            debugCanvas.width = window.innerWidth;
+            debugCanvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Start camera
+        document.getElementById('startBtn').addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        frameRate: { ideal: 60 }
+                    }
+                });
+                video.srcObject = stream;
+                document.getElementById('startScreen').style.display = 'none';
+                updateStatus('Camera ready');
+            } catch (err) {
+                alert('Camera error: ' + err.message);
+            }
+        });
+        
+        // Track button
+        document.getElementById('trackBtn').addEventListener('click', () => {
+            isTracking = !isTracking;
+            const btn = document.getElementById('trackBtn');
+            btn.textContent = isTracking ? 'Stop Tracking' : 'Start Tracking';
+            btn.classList.toggle('recording', isTracking);
+            
+            if (isTracking) {
+                trails = [];
+                previousFrame = null;
+                updateStatus('Tracking...');
+            } else {
+                updateStatus('Paused');
+            }
+        });
+        
+        // Reset
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            trails = [];
+            previousFrame = null;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            debugCtx.clearRect(0, 0, debugCanvas.width, debugCanvas.height);
+        });
+        
+        function updateStatus(msg) {
+            document.getElementById('status').textContent = msg;
+        }
+        
+        // Motion detection
+        function detectMotion() {
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            tempCanvas.width = 160;  // Low res for speed
+            tempCanvas.height = 120;
+            
+            tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+            const currentFrame = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            
+            if (!previousFrame) {
+                previousFrame = currentFrame;
+                return [];
+            }
+            
+            const motionPixels = [];
+            const threshold = (100 - sensitivity) * 2; // Higher sensitivity = lower threshold
+            
+            for (let i = 0; i < currentFrame.data.length; i += 4) {
+                const diffR = Math.abs(currentFrame.data[i] - previousFrame.data[i]);
+                const diffG = Math.abs(currentFrame.data[i + 1] - previousFrame.data[i + 1]);
+                const diffB = Math.abs(currentFrame.data[i + 2] - previousFrame.data[i + 2]);
+                const diff = (diffR + diffG + diffB) / 3;
+                
+                if (diff > threshold) {
+                    const pixelIndex = i / 4;
+                    const x = (pixelIndex % tempCanvas.width) / tempCanvas.width * canvas.width;
+                    const y = Math.floor(pixelIndex / tempCanvas.width) / tempCanvas.height * canvas.height;
+                    motionPixels.push({ x, y, intensity: diff });
+                }
+            }
+            
+            previousFrame = currentFrame;
+            document.getElementById('motion').textContent = motionPixels.length;
+            
+            return motionPixels;
+        }
+        
+        // Color detection
+        function detectColor() {
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            tempCanvas.width = 160;
+            tempCanvas.height = 120;
+            
+            tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            const data = imageData.data;
+            
+            const colorPixels = [];
+            const brightnessThreshold = 100;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const brightness = (r + g + b) / 3;
+                
+                let isMatch = false;
+                
+                if (selectedColor === 'any') {
+                    // Detect any bright, saturated color
+                    const maxChannel = Math.max(r, g, b);
+                    const minChannel = Math.min(r, g, b);
+                    const saturation = maxChannel - minChannel;
+                    isMatch = brightness > brightnessThreshold && saturation > 50;
+                } else if (selectedColor === 'orange') {
+                    isMatch = r > 150 && g > 50 && g < 200 && b < 150;
+                } else if (selectedColor === 'pink') {
+                    isMatch = r > 150 && g > 50 && b > 100;
+                } else if (selectedColor === 'yellow') {
+                    isMatch = r > 150 && g > 150 && b < 150;
+                }
+                
+                if (isMatch) {
+                    const pixelIndex = i / 4;
+                    const x = (pixelIndex % tempCanvas.width) / tempCanvas.width * canvas.width;
+                    const y = Math.floor(pixelIndex / tempCanvas.width) / tempCanvas.height * canvas.height;
+                    colorPixels.push({ x, y });
+                }
+            }
+            
+            return colorPixels;
+        }
+        
+        // Cluster points
+        function clusterPoints(points, radius = 80) {
+            if (points.length === 0) return [];
+            
+            const clusters = [];
+            
+            points.forEach(point => {
+                let foundCluster = false;
+                
+                for (let cluster of clusters) {
+                    const dx = point.x - cluster.x;
+                    const dy = point.y - cluster.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < radius) {
+                        cluster.points.push(point);
+                        cluster.x = cluster.points.reduce((sum, p) => sum + p.x, 0) / cluster.points.length;
+                        cluster.y = cluster.points.reduce((sum, p) => sum + p.y, 0) / cluster.points.length;
+                        foundCluster = true;
+                        break;
+                    }
+                }
+                
+                if (!foundCluster) {
+                    clusters.push({
+                        x: point.x,
+                        y: point.y,
+                        points: [point]
+                    });
+                }
+            });
+            
+            // Return clusters with enough points
+            const minPoints = Math.max(3, 15 - sensitivity / 5);
+            return clusters.filter(c => c.points.length >= minPoints);
+        }
+        
+        // Main tracking
+        function track() {
+            if (!isTracking) return;
+            
+            let detectedPoints = [];
+            
+            if (trackMode === 'motion' || trackMode === 'both') {
+                const motionPoints = detectMotion();
+                detectedPoints = detectedPoints.concat(motionPoints);
+            }
+            
+            if (trackMode === 'color' || trackMode === 'both') {
+                const colorPoints = detectColor();
+                detectedPoints = detectedPoints.concat(colorPoints);
+            }
+            
+            const objects = clusterPoints(detectedPoints);
+            
+            document.getElementById('objectCount').textContent = objects.length;
+            document.getElementById('tracking').textContent = objects.length > 0 ? 'YES' : 'NO';
+            
+            // Draw
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (showDebug) {
+                debugCtx.clearRect(0, 0, debugCanvas.width, debugCanvas.height);
+            }
+            
+            // Draw detected points in debug mode
+            if (showDebug && detectedPoints.length > 0) {
+                debugCtx.fillStyle = 'rgba(0, 255, 0, 0.5)';
+                detectedPoints.forEach(p => {
+                    debugCtx.fillRect(p.x - 1, p.y - 1, 3, 3);
+                });
+            }
+            
+            // Draw tracked objects
+            objects.forEach((obj, i) => {
+                // Bounding box
+                ctx.strokeStyle = '#0f0';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(obj.x - 40, obj.y - 40, 80, 80);
+                
+                // Crosshair
+                ctx.beginPath();
+                ctx.moveTo(obj.x - 50, obj.y);
+                ctx.lineTo(obj.x + 50, obj.y);
+                ctx.moveTo(obj.x, obj.y - 50);
+                ctx.lineTo(obj.x, obj.y + 50);
+                ctx.stroke();
+                
+                // Label
+                ctx.fillStyle = '#0f0';
+                ctx.font = 'bold 14px Arial';
+                ctx.fillText(`TARGET ${i + 1}`, obj.x - 30, obj.y - 50);
+                
+                // Add to trail
+                trails.push({ x: obj.x, y: obj.y, time: Date.now() });
+            });
+            
+            // Keep only recent trail
+            const now = Date.now();
+            trails = trails.filter(t => now - t.time < 2000);
+            
+            // Draw trail
+            if (trails.length > 1) {
+                ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(trails[0].x, trails[0].y);
+                
+                for (let i = 1; i < trails.length; i++) {
+                    ctx.lineTo(trails[i].x, trails[i].y);
+                }
+                ctx.stroke();
+                
+                // Draw trail points
+                trails.forEach(t => {
+                    const age = (now - t.time) / 2000;
+                    const alpha = 1 - age;
+                    ctx.fillStyle = `rgba(0, 255, 0, ${alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(t.x, t.y, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
+        }
+        
+        // Game loop
+        function loop() {
+            track();
+            
+            // Update FPS
+            frameCount++;
+            const now = Date.now();
+            if (now - lastFrameTime >= 1000) {
+                document.getElementById('fps').textContent = frameCount;
+                frameCount = 0;
+                lastFrameTime = now;
+            }
+            
+            requestAnimationFrame(loop);
+        }
+        
+        video.addEventListener('loadedmetadata', () => {
+            loop();
+        });
+    </script>
+</body>
+</html>
