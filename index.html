@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kite Tracker Test</title>
+    <title>Kite Tracker v2</title>
     <style>
         * {
             margin: 0;
@@ -22,9 +22,6 @@
             position: relative;
             width: 100vw;
             height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
         }
         
         #video {
@@ -42,61 +39,63 @@
             left: 0;
             width: 100%;
             height: 100%;
-            pointer-events: none;
+        }
+        
+        #debugCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.3;
         }
         
         #stats {
             position: fixed;
-            top: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.8);
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.9);
             color: #0f0;
-            padding: 15px;
-            border-radius: 10px;
-            font-size: 14px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
             font-family: 'Courier New', monospace;
             z-index: 1000;
-            max-width: 250px;
+            max-width: 180px;
             border: 2px solid #0f0;
         }
         
         #stats div {
-            margin: 5px 0;
-        }
-        
-        .stat-label {
-            color: #0f0;
-            font-weight: bold;
-        }
-        
-        .stat-value {
-            color: #fff;
+            margin: 3px 0;
         }
         
         #controls {
             position: fixed;
-            bottom: 20px;
+            bottom: 10px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
+            flex-direction: column;
             gap: 10px;
             z-index: 1000;
+            align-items: center;
+        }
+        
+        .btn-row {
+            display: flex;
+            gap: 10px;
         }
         
         .btn {
             background: #0f0;
             color: #000;
             border: none;
-            padding: 15px 30px;
-            border-radius: 10px;
-            font-size: 16px;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 14px;
             font-weight: bold;
             cursor: pointer;
             touch-action: manipulation;
-        }
-        
-        .btn:active {
-            background: #0c0;
         }
         
         .btn.recording {
@@ -108,6 +107,64 @@
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.7; }
+        }
+        
+        #settings {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 10px;
+            border-radius: 8px;
+            border: 2px solid #0f0;
+            z-index: 1000;
+            max-width: 200px;
+        }
+        
+        #settings h3 {
+            color: #0f0;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+        
+        .setting-row {
+            margin: 8px 0;
+        }
+        
+        .setting-row label {
+            color: #0f0;
+            font-size: 11px;
+            display: block;
+            margin-bottom: 3px;
+        }
+        
+        .setting-row input[type="range"] {
+            width: 100%;
+        }
+        
+        .setting-row select {
+            width: 100%;
+            background: #000;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 5px;
+            border-radius: 4px;
+        }
+        
+        .toggle-btn {
+            background: #333;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            width: 100%;
+            cursor: pointer;
+        }
+        
+        .toggle-btn.active {
+            background: #0f0;
+            color: #000;
         }
         
         #startScreen {
@@ -128,280 +185,296 @@
         }
         
         #startScreen h1 {
-            font-size: 32px;
-            margin-bottom: 20px;
+            font-size: 28px;
+            margin-bottom: 15px;
             color: #0f0;
         }
         
         #startScreen p {
-            font-size: 16px;
-            margin-bottom: 30px;
-            max-width: 400px;
-            line-height: 1.5;
+            font-size: 14px;
+            margin-bottom: 20px;
+            max-width: 350px;
+            line-height: 1.4;
         }
         
         #startBtn {
             background: #0f0;
             color: #000;
             border: none;
-            padding: 20px 50px;
+            padding: 18px 45px;
             border-radius: 10px;
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
             cursor: pointer;
-        }
-        
-        #colorPicker {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 15px;
-            border-radius: 10px;
-            border: 2px solid #0f0;
-            z-index: 1000;
-        }
-        
-        #colorPicker label {
-            color: #0f0;
-            font-size: 12px;
-            font-weight: bold;
-            display: block;
-            margin-bottom: 10px;
-        }
-        
-        .color-option {
-            display: block;
-            width: 100%;
-            padding: 10px;
-            margin: 5px 0;
-            border: 2px solid #0f0;
-            background: #000;
-            color: #0f0;
-            border-radius: 5px;
-            font-size: 14px;
-            cursor: pointer;
-        }
-        
-        .color-option.active {
-            background: #0f0;
-            color: #000;
-        }
-        
-        #trail {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
         }
     </style>
 </head>
 <body>
     <div id="startScreen">
-        <h1>🪁 Kite Tracker Test</h1>
-        <p>This app will track bright colored moving objects (like your thumb kites) in real-time.</p>
-        <p><strong>How to use:</strong><br>
-        1. Tap "Start Camera"<br>
-        2. Select your kite color<br>
-        3. Tap "Start Tracking"<br>
-        4. Launch a kite and watch it track!</p>
+        <h1>🪁 Kite Tracker v2</h1>
+        <p><strong>Improved tracking with motion detection!</strong></p>
+        <p>Point camera at launch area, tap Start Tracking, then launch your kite.</p>
         <button id="startBtn">Start Camera</button>
     </div>
 
     <div id="container">
         <video id="video" autoplay playsinline></video>
-        <canvas id="trail"></canvas>
+        <canvas id="debugCanvas"></canvas>
         <canvas id="canvas"></canvas>
     </div>
 
     <div id="stats">
-        <div><span class="stat-label">STATUS:</span> <span class="stat-value" id="status">Waiting...</span></div>
-        <div><span class="stat-label">FPS:</span> <span class="stat-value" id="fps">0</span></div>
-        <div><span class="stat-label">Objects:</span> <span class="stat-value" id="objectCount">0</span></div>
-        <div><span class="stat-label">Tracking:</span> <span class="stat-value" id="tracking">NO</span></div>
-        <div><span class="stat-label">Position:</span> <span class="stat-value" id="position">--</span></div>
-        <div><span class="stat-label">Speed:</span> <span class="stat-value" id="speed">--</span></div>
+        <div><strong>STATUS:</strong> <span id="status">Ready</span></div>
+        <div><strong>FPS:</strong> <span id="fps">0</span></div>
+        <div><strong>Motion:</strong> <span id="motion">0</span></div>
+        <div><strong>Tracking:</strong> <span id="tracking">NO</span></div>
+        <div><strong>Objects:</strong> <span id="objectCount">0</span></div>
     </div>
 
-    <div id="colorPicker">
-        <label>KITE COLOR:</label>
-        <button class="color-option active" data-color="orange">🟠 Orange/Red</button>
-        <button class="color-option" data-color="pink">🩷 Pink</button>
-        <button class="color-option" data-color="yellow">🟡 Yellow</button>
-        <button class="color-option" data-color="green">🟢 Green</button>
+    <div id="settings">
+        <h3>SETTINGS</h3>
+        
+        <div class="setting-row">
+            <label>Mode:</label>
+            <select id="modeSelect">
+                <option value="motion">Motion Detection</option>
+                <option value="color">Color Detection</option>
+                <option value="both">Both (Recommended)</option>
+            </select>
+        </div>
+        
+        <div class="setting-row">
+            <label>Sensitivity: <span id="sensValue">50</span></label>
+            <input type="range" id="sensitivity" min="10" max="100" value="50">
+        </div>
+        
+        <div class="setting-row">
+            <button class="toggle-btn" id="debugToggle">Debug View: OFF</button>
+        </div>
+        
+        <div class="setting-row">
+            <label>Color:</label>
+            <select id="colorSelect">
+                <option value="any">Any Bright Color</option>
+                <option value="orange">Orange/Red</option>
+                <option value="pink">Pink</option>
+                <option value="yellow">Yellow</option>
+            </select>
+        </div>
     </div>
 
     <div id="controls">
-        <button class="btn" id="trackBtn">Start Tracking</button>
-        <button class="btn" id="resetBtn">Reset</button>
+        <div class="btn-row">
+            <button class="btn" id="trackBtn">Start Tracking</button>
+            <button class="btn" id="resetBtn">Reset</button>
+        </div>
     </div>
 
     <script>
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
-        const trailCanvas = document.getElementById('trail');
+        const debugCanvas = document.getElementById('debugCanvas');
         const ctx = canvas.getContext('2d');
-        const trailCtx = trailCanvas.getContext('2d');
-        const startScreen = document.getElementById('startScreen');
-        const startBtn = document.getElementById('startBtn');
-        const trackBtn = document.getElementById('trackBtn');
-        const resetBtn = document.getElementById('resetBtn');
-
+        const debugCtx = debugCanvas.getContext('2d');
+        
         let isTracking = false;
+        let showDebug = false;
+        let sensitivity = 50;
+        let trackMode = 'both';
+        let selectedColor = 'any';
+        let previousFrame = null;
+        let trails = [];
         let frameCount = 0;
         let lastFrameTime = Date.now();
-        let currentFPS = 0;
-        let selectedColor = 'orange';
-        let trackedObjects = [];
-        let trackingHistory = [];
-
-        // Color ranges for detection (HSV-like ranges in RGB)
-        const colorRanges = {
-            orange: { r: [180, 255], g: [60, 180], b: [0, 100] },
-            pink: { r: [200, 255], g: [100, 200], b: [150, 255] },
-            yellow: { r: [200, 255], g: [200, 255], b: [0, 150] },
-            green: { r: [0, 150], g: [150, 255], b: [0, 150] }
-        };
-
-        // Set canvas sizes
+        
+        // Settings
+        document.getElementById('sensitivity').addEventListener('input', (e) => {
+            sensitivity = parseInt(e.target.value);
+            document.getElementById('sensValue').textContent = sensitivity;
+        });
+        
+        document.getElementById('modeSelect').addEventListener('change', (e) => {
+            trackMode = e.target.value;
+        });
+        
+        document.getElementById('colorSelect').addEventListener('change', (e) => {
+            selectedColor = e.target.value;
+        });
+        
+        document.getElementById('debugToggle').addEventListener('click', (e) => {
+            showDebug = !showDebug;
+            debugCanvas.style.display = showDebug ? 'block' : 'none';
+            e.target.textContent = `Debug View: ${showDebug ? 'ON' : 'OFF'}`;
+            e.target.classList.toggle('active', showDebug);
+        });
+        
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            trailCanvas.width = window.innerWidth;
-            trailCanvas.height = window.innerHeight;
+            debugCanvas.width = window.innerWidth;
+            debugCanvas.height = window.innerHeight;
         }
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
-
-        // Color selection
-        document.querySelectorAll('.color-option').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.color-option').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                selectedColor = btn.dataset.color;
-                updateStatus(`Color set to ${selectedColor}`);
-            });
-        });
-
+        
         // Start camera
-        startBtn.addEventListener('click', async () => {
+        document.getElementById('startBtn').addEventListener('click', async () => {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { 
                         facingMode: 'environment',
                         width: { ideal: 1920 },
-                        height: { ideal: 1080 }
+                        height: { ideal: 1080 },
+                        frameRate: { ideal: 60 }
                     }
                 });
                 video.srcObject = stream;
-                startScreen.style.display = 'none';
+                document.getElementById('startScreen').style.display = 'none';
                 updateStatus('Camera ready');
             } catch (err) {
-                alert('Camera access denied: ' + err.message);
+                alert('Camera error: ' + err.message);
             }
         });
-
-        // Start/Stop tracking
-        trackBtn.addEventListener('click', () => {
+        
+        // Track button
+        document.getElementById('trackBtn').addEventListener('click', () => {
             isTracking = !isTracking;
-            trackBtn.textContent = isTracking ? 'Stop Tracking' : 'Start Tracking';
-            trackBtn.classList.toggle('recording', isTracking);
+            const btn = document.getElementById('trackBtn');
+            btn.textContent = isTracking ? 'Stop Tracking' : 'Start Tracking';
+            btn.classList.toggle('recording', isTracking);
             
             if (isTracking) {
-                updateStatus('Tracking active');
-                trackingHistory = [];
+                trails = [];
+                previousFrame = null;
+                updateStatus('Tracking...');
             } else {
-                updateStatus('Tracking paused');
+                updateStatus('Paused');
             }
         });
-
+        
         // Reset
-        resetBtn.addEventListener('click', () => {
-            trackingHistory = [];
-            trackedObjects = [];
-            trailCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
-            updateStatus('Reset');
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            trails = [];
+            previousFrame = null;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            debugCtx.clearRect(0, 0, debugCanvas.width, debugCanvas.height);
         });
-
-        // Update status
+        
         function updateStatus(msg) {
             document.getElementById('status').textContent = msg;
         }
-
-        // Detect motion/color in frame
-        function detectObjects() {
-            if (!isTracking) return [];
-
+        
+        // Motion detection
+        function detectMotion() {
             const tempCanvas = document.createElement('canvas');
             const tempCtx = tempCanvas.getContext('2d');
             
-            // Use smaller resolution for faster processing
-            tempCanvas.width = 320;
-            tempCanvas.height = 240;
+            tempCanvas.width = 160;  // Low res for speed
+            tempCanvas.height = 120;
+            
+            tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+            const currentFrame = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            
+            if (!previousFrame) {
+                previousFrame = currentFrame;
+                return [];
+            }
+            
+            const motionPixels = [];
+            const threshold = (100 - sensitivity) * 2; // Higher sensitivity = lower threshold
+            
+            for (let i = 0; i < currentFrame.data.length; i += 4) {
+                const diffR = Math.abs(currentFrame.data[i] - previousFrame.data[i]);
+                const diffG = Math.abs(currentFrame.data[i + 1] - previousFrame.data[i + 1]);
+                const diffB = Math.abs(currentFrame.data[i + 2] - previousFrame.data[i + 2]);
+                const diff = (diffR + diffG + diffB) / 3;
+                
+                if (diff > threshold) {
+                    const pixelIndex = i / 4;
+                    const x = (pixelIndex % tempCanvas.width) / tempCanvas.width * canvas.width;
+                    const y = Math.floor(pixelIndex / tempCanvas.width) / tempCanvas.height * canvas.height;
+                    motionPixels.push({ x, y, intensity: diff });
+                }
+            }
+            
+            previousFrame = currentFrame;
+            document.getElementById('motion').textContent = motionPixels.length;
+            
+            return motionPixels;
+        }
+        
+        // Color detection
+        function detectColor() {
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            tempCanvas.width = 160;
+            tempCanvas.height = 120;
             
             tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
             const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
             const data = imageData.data;
             
-            const colorRange = colorRanges[selectedColor];
-            const detected = [];
-            const gridSize = 10; // Check every 10th pixel for speed
+            const colorPixels = [];
+            const brightnessThreshold = 100;
             
-            for (let y = 0; y < tempCanvas.height; y += gridSize) {
-                for (let x = 0; x < tempCanvas.width; x += gridSize) {
-                    const i = (y * tempCanvas.width + x) * 4;
-                    const r = data[i];
-                    const g = data[i + 1];
-                    const b = data[i + 2];
-                    
-                    // Check if pixel matches selected color range
-                    if (r >= colorRange.r[0] && r <= colorRange.r[1] &&
-                        g >= colorRange.g[0] && g <= colorRange.g[1] &&
-                        b >= colorRange.b[0] && b <= colorRange.b[1]) {
-                        
-                        detected.push({
-                            x: (x / tempCanvas.width) * canvas.width,
-                            y: (y / tempCanvas.height) * canvas.height
-                        });
-                    }
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const brightness = (r + g + b) / 3;
+                
+                let isMatch = false;
+                
+                if (selectedColor === 'any') {
+                    // Detect any bright, saturated color
+                    const maxChannel = Math.max(r, g, b);
+                    const minChannel = Math.min(r, g, b);
+                    const saturation = maxChannel - minChannel;
+                    isMatch = brightness > brightnessThreshold && saturation > 50;
+                } else if (selectedColor === 'orange') {
+                    isMatch = r > 150 && g > 50 && g < 200 && b < 150;
+                } else if (selectedColor === 'pink') {
+                    isMatch = r > 150 && g > 50 && b > 100;
+                } else if (selectedColor === 'yellow') {
+                    isMatch = r > 150 && g > 150 && b < 150;
+                }
+                
+                if (isMatch) {
+                    const pixelIndex = i / 4;
+                    const x = (pixelIndex % tempCanvas.width) / tempCanvas.width * canvas.width;
+                    const y = Math.floor(pixelIndex / tempCanvas.width) / tempCanvas.height * canvas.height;
+                    colorPixels.push({ x, y });
                 }
             }
             
-            // Cluster nearby detections
-            if (detected.length > 0) {
-                return clusterPoints(detected);
-            }
-            
-            return [];
+            return colorPixels;
         }
-
-        // Cluster nearby points into objects
-        function clusterPoints(points) {
+        
+        // Cluster points
+        function clusterPoints(points, radius = 80) {
             if (points.length === 0) return [];
             
             const clusters = [];
-            const clusterRadius = 50;
             
             points.forEach(point => {
-                let addedToCluster = false;
+                let foundCluster = false;
                 
                 for (let cluster of clusters) {
                     const dx = point.x - cluster.x;
                     const dy = point.y - cluster.y;
                     const dist = Math.sqrt(dx * dx + dy * dy);
                     
-                    if (dist < clusterRadius) {
+                    if (dist < radius) {
                         cluster.points.push(point);
                         cluster.x = cluster.points.reduce((sum, p) => sum + p.x, 0) / cluster.points.length;
                         cluster.y = cluster.points.reduce((sum, p) => sum + p.y, 0) / cluster.points.length;
-                        addedToCluster = true;
+                        foundCluster = true;
                         break;
                     }
                 }
                 
-                if (!addedToCluster) {
+                if (!foundCluster) {
                     clusters.push({
                         x: point.x,
                         y: point.y,
@@ -410,99 +483,114 @@
                 }
             });
             
-            // Only return clusters with enough points (filters noise)
-            return clusters.filter(c => c.points.length > 3);
+            // Return clusters with enough points
+            const minPoints = Math.max(3, 15 - sensitivity / 5);
+            return clusters.filter(c => c.points.length >= minPoints);
         }
-
-        // Draw tracking visualization
-        function drawTracking() {
+        
+        // Main tracking
+        function track() {
+            if (!isTracking) return;
+            
+            let detectedPoints = [];
+            
+            if (trackMode === 'motion' || trackMode === 'both') {
+                const motionPoints = detectMotion();
+                detectedPoints = detectedPoints.concat(motionPoints);
+            }
+            
+            if (trackMode === 'color' || trackMode === 'both') {
+                const colorPoints = detectColor();
+                detectedPoints = detectedPoints.concat(colorPoints);
+            }
+            
+            const objects = clusterPoints(detectedPoints);
+            
+            document.getElementById('objectCount').textContent = objects.length;
+            document.getElementById('tracking').textContent = objects.length > 0 ? 'YES' : 'NO';
+            
+            // Draw
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (showDebug) {
+                debugCtx.clearRect(0, 0, debugCanvas.width, debugCanvas.height);
+            }
             
-            // Detect objects
-            trackedObjects = detectObjects();
+            // Draw detected points in debug mode
+            if (showDebug && detectedPoints.length > 0) {
+                debugCtx.fillStyle = 'rgba(0, 255, 0, 0.5)';
+                detectedPoints.forEach(p => {
+                    debugCtx.fillRect(p.x - 1, p.y - 1, 3, 3);
+                });
+            }
             
-            // Update stats
-            document.getElementById('objectCount').textContent = trackedObjects.length;
-            document.getElementById('tracking').textContent = trackedObjects.length > 0 ? 'YES' : 'NO';
-            
-            // Draw bounding boxes and trails
-            trackedObjects.forEach((obj, index) => {
-                // Draw bounding box
+            // Draw tracked objects
+            objects.forEach((obj, i) => {
+                // Bounding box
                 ctx.strokeStyle = '#0f0';
                 ctx.lineWidth = 3;
-                ctx.strokeRect(obj.x - 30, obj.y - 30, 60, 60);
+                ctx.strokeRect(obj.x - 40, obj.y - 40, 80, 80);
                 
-                // Draw crosshair
+                // Crosshair
                 ctx.beginPath();
-                ctx.moveTo(obj.x - 40, obj.y);
-                ctx.lineTo(obj.x + 40, obj.y);
-                ctx.moveTo(obj.x, obj.y - 40);
-                ctx.lineTo(obj.x, obj.y + 40);
+                ctx.moveTo(obj.x - 50, obj.y);
+                ctx.lineTo(obj.x + 50, obj.y);
+                ctx.moveTo(obj.x, obj.y - 50);
+                ctx.lineTo(obj.x, obj.y + 50);
                 ctx.stroke();
                 
-                // Draw label
+                // Label
                 ctx.fillStyle = '#0f0';
-                ctx.font = 'bold 16px Arial';
-                ctx.fillText(`OBJECT ${index + 1}`, obj.x - 35, obj.y - 40);
+                ctx.font = 'bold 14px Arial';
+                ctx.fillText(`TARGET ${i + 1}`, obj.x - 30, obj.y - 50);
                 
-                // Add to history
-                trackingHistory.push({ x: obj.x, y: obj.y, time: Date.now() });
-                
-                // Keep only last 30 points
-                if (trackingHistory.length > 30) {
-                    trackingHistory.shift();
-                }
-                
-                // Update position stats
-                document.getElementById('position').textContent = `${Math.round(obj.x)}, ${Math.round(obj.y)}`;
-                
-                // Calculate speed
-                if (trackingHistory.length > 2) {
-                    const recent = trackingHistory.slice(-5);
-                    const dx = recent[recent.length - 1].x - recent[0].x;
-                    const dy = recent[recent.length - 1].y - recent[0].y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    const time = (recent[recent.length - 1].time - recent[0].time) / 1000;
-                    const speed = dist / time;
-                    document.getElementById('speed').textContent = `${Math.round(speed)} px/s`;
-                }
+                // Add to trail
+                trails.push({ x: obj.x, y: obj.y, time: Date.now() });
             });
             
+            // Keep only recent trail
+            const now = Date.now();
+            trails = trails.filter(t => now - t.time < 2000);
+            
             // Draw trail
-            if (trackingHistory.length > 1) {
-                trailCtx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
-                trailCtx.lineWidth = 3;
-                trailCtx.beginPath();
-                trailCtx.moveTo(trackingHistory[0].x, trackingHistory[0].y);
+            if (trails.length > 1) {
+                ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(trails[0].x, trails[0].y);
                 
-                for (let i = 1; i < trackingHistory.length; i++) {
-                    trailCtx.lineTo(trackingHistory[i].x, trackingHistory[i].y);
+                for (let i = 1; i < trails.length; i++) {
+                    ctx.lineTo(trails[i].x, trails[i].y);
                 }
-                trailCtx.stroke();
+                ctx.stroke();
                 
-                // Fade trail over time
-                trailCtx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-                trailCtx.fillRect(0, 0, trailCanvas.width, trailCanvas.height);
+                // Draw trail points
+                trails.forEach(t => {
+                    const age = (now - t.time) / 2000;
+                    const alpha = 1 - age;
+                    ctx.fillStyle = `rgba(0, 255, 0, ${alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(t.x, t.y, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                });
             }
+        }
+        
+        // Game loop
+        function loop() {
+            track();
             
             // Update FPS
             frameCount++;
             const now = Date.now();
             if (now - lastFrameTime >= 1000) {
-                currentFPS = frameCount;
-                document.getElementById('fps').textContent = currentFPS;
+                document.getElementById('fps').textContent = frameCount;
                 frameCount = 0;
                 lastFrameTime = now;
             }
-        }
-
-        // Main loop
-        function loop() {
-            drawTracking();
+            
             requestAnimationFrame(loop);
         }
-
-        // Start when video is ready
+        
         video.addEventListener('loadedmetadata', () => {
             loop();
         });
