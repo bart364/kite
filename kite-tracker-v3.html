@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kite Shot Tracer v3</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #000;
+            overflow: hidden;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            color: white;
+            font-size: 24px;
+            text-align: center;
+            padding: 40px;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        #overlay.hidden {
+            display: none;
+        }
+        
+        .big-btn {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 20px 50px;
+            border-radius: 15px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0, 255, 0, 0.5);
+        }
+        
+        #stats {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.9);
+            color: #00ff00;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            z-index: 50;
+            border: 2px solid #00ff00;
+        }
+        
+        #stats div {
+            margin: 4px 0;
+        }
+        
+        .status-ready { color: #00ff00; }
+        .status-tracking { color: #ffaa00; animation: blink 1s infinite; }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            z-index: 50;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .btn {
+            background: rgba(0, 0, 0, 0.8);
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .btn.active {
+            background: #00ff00;
+            color: #000;
+        }
+        
+        #settings {
+            background: rgba(0, 0, 0, 0.9);
+            padding: 10px;
+            border-radius: 8px;
+            border: 2px solid #00ff00;
+            display: flex;
+            gap: 10px;
+            flex-direction: column;
+        }
+        
+        #settings label {
+            color: #00ff00;
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        #settings input[type="range"] {
+            width: 120px;
+        }
+        
+        .instruction {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 255, 0, 0.95);
+            color: #000;
+            padding: 20px 40px;
+            border-radius: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 60;
+            display: none;
+            text-align: center;
+            max-width: 80%;
+        }
+        
+        .instruction.show {
+            display: block;
+            animation: fadeInOut 3s forwards;
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+        }
+    </style>
+</head>
+<body>
+    <div id="overlay">
+        <div style="max-width: 500px;">
+            <h1 style="margin-bottom: 20px;">🪁 Kite Tracker v3</h1>
+            <p style="font-size: 16px; line-height: 1.6;">
+                <strong>Improved Motion Tracking!</strong><br><br>
+                1. Hold phone STILL or mount it<br>
+                2. Tap "Lock Background"<br>
+                3. Launch your kite<br>
+                4. Adjust sensitivity if needed<br><br>
+                <em>Now filters out small movements!</em>
+            </p>
+        </div>
+        <button class="big-btn" id="startBtn">Start Camera</button>
+    </div>
+
+    <div id="container">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <div id="stats">
+        <div><strong>STATUS:</strong> <span id="mode" class="status-ready">Ready</span></div>
+        <div><strong>FPS:</strong> <span id="fps">0</span></div>
+        <div><strong>BACKGROUND:</strong> <span id="bgStatus">Not Locked</span></div>
+        <div><strong>CANDIDATES:</strong> <span id="candidates">0</span></div>
+        <div><strong>TRACKING:</strong> <span id="tracking">--</span></div>
+    </div>
+
+    <div id="controls">
+        <div style="display: flex; gap: 12px;">
+            <button class="btn" id="lockBtn">Lock Background</button>
+            <button class="btn" id="resetBtn">Reset Trail</button>
+        </div>
+        
+        <div id="settings">
+            <label>
+                Min Size: <span id="minSizeVal">100</span>
+                <input type="range" id="minSize" min="20" max="500" value="100">
+            </label>
+            <label>
+                Min Speed: <span id="minSpeedVal">50</span>
+                <input type="range" id="minSpeed" min="10" max="200" value="50">
+            </label>
+            <label>
+                Sensitivity: <span id="sensitivityVal">35</span>
+                <input type="range" id="sensitivity" min="10" max="100" value="35">
+            </label>
+        </div>
+    </div>
+
+    <div class="instruction" id="instruction"></div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let backgroundLocked = false;
+        let backgroundFrame = null;
+        let isTracking = false;
+        let projectilePath = [];
+        let frameCount = 0;
+        let lastFrameTime = Date.now();
+        let lastPosition = null;
+        
+        // Settings
+        let minObjectSize = 100;
+        let minSpeed = 50;
+        let sensitivity = 35;
+        
+        // Update settings
+        document.getElementById('minSize').addEventListener('input', (e) => {
+            minObjectSize = parseInt(e.target.value);
+            document.getElementById('minSizeVal').textContent = minObjectSize;
+        });
+        
+        document.getElementById('minSpeed').addEventListener('input', (e) => {
+            minSpeed = parseInt(e.target.value);
+            document.getElementById('minSpeedVal').textContent = minSpeed;
+        });
+        
+        document.getElementById('sensitivity').addEventListener('input', (e) => {
+            sensitivity = parseInt(e.target.value);
+            document.getElementById('sensitivityVal').textContent = sensitivity;
+        });
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        function showInstruction(text) {
+            const inst = document.getElementById('instruction');
+            inst.textContent = text;
+            inst.className = 'instruction show';
+            setTimeout(() => inst.className = 'instruction', 3000);
+        }
+        
+        // Start camera
+        document.getElementById('startBtn').addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        frameRate: { ideal: 60 }
+                    }
+                });
+                video.srcObject = stream;
+                document.getElementById('overlay').classList.add('hidden');
+                showInstruction('Hold STILL and tap "Lock Background"');
+                document.getElementById('mode').textContent = 'Ready';
+            } catch (err) {
+                alert('Camera error: ' + err.message);
+            }
+        });
+        
+        // Lock background
+        document.getElementById('lockBtn').addEventListener('click', () => {
+            if (backgroundLocked) {
+                backgroundLocked = false;
+                backgroundFrame = null;
+                projectilePath = [];
+                lastPosition = null;
+                document.getElementById('lockBtn').textContent = 'Lock Background';
+                document.getElementById('lockBtn').classList.remove('active');
+                document.getElementById('bgStatus').textContent = 'Not Locked';
+                document.getElementById('mode').textContent = 'Ready';
+                document.getElementById('mode').className = 'status-ready';
+            } else {
+                showInstruction('Locking in 3... 2... 1...');
+                setTimeout(() => {
+                    captureBackground();
+                    backgroundLocked = true;
+                    isTracking = true;
+                    lastPosition = null;
+                    document.getElementById('lockBtn').textContent = 'Unlock';
+                    document.getElementById('lockBtn').classList.add('active');
+                    document.getElementById('bgStatus').textContent = 'LOCKED ✓';
+                    document.getElementById('mode').textContent = 'TRACKING';
+                    document.getElementById('mode').className = 'status-tracking';
+                    showInstruction('READY! Launch your kite!');
+                }, 3000);
+            }
+        });
+        
+        // Reset
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            projectilePath = [];
+            lastPosition = null;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            showInstruction('Trail cleared');
+        });
+        
+        // Capture background
+        function captureBackground() {
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            tempCanvas.width = 320;
+            tempCanvas.height = 240;
+            
+            tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+            backgroundFrame = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        }
+        
+        // Detect moving objects with improved filtering
+        function detectMovement() {
+            if (!backgroundLocked || !backgroundFrame) return [];
+            
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            tempCanvas.width = 320;
+            tempCanvas.height = 240;
+            
+            tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+            const currentFrame = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            
+            // Find all changed pixels
+            const changedPixels = [];
+            const threshold = sensitivity;
+            
+            for (let i = 0; i < currentFrame.data.length; i += 4) {
+                const diffR = Math.abs(currentFrame.data[i] - backgroundFrame.data[i]);
+                const diffG = Math.abs(currentFrame.data[i + 1] - backgroundFrame.data[i + 1]);
+                const diffB = Math.abs(currentFrame.data[i + 2] - backgroundFrame.data[i + 2]);
+                const totalDiff = (diffR + diffG + diffB) / 3;
+                
+                if (totalDiff > threshold) {
+                    const pixelIndex = i / 4;
+                    const x = pixelIndex % tempCanvas.width;
+                    const y = Math.floor(pixelIndex / tempCanvas.width);
+                    
+                    changedPixels.push({
+                        x: (x / tempCanvas.width) * canvas.width,
+                        y: (y / tempCanvas.height) * canvas.height
+                    });
+                }
+            }
+            
+            // Cluster changed pixels into objects
+            const objects = clusterPixels(changedPixels);
+            
+            // Filter by size
+            const largeObjects = objects.filter(obj => obj.pixelCount >= minObjectSize);
+            
+            document.getElementById('candidates').textContent = largeObjects.length;
+            
+            return largeObjects;
+        }
+        
+        // Cluster pixels into discrete objects
+        function clusterPixels(pixels) {
+            if (pixels.length === 0) return [];
+            
+            const clusters = [];
+            const clusterRadius = 50;
+            
+            pixels.forEach(pixel => {
+                let foundCluster = false;
+                
+                for (let cluster of clusters) {
+                    const dx = pixel.x - cluster.centerX;
+                    const dy = pixel.y - cluster.centerY;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < clusterRadius) {
+                        cluster.pixels.push(pixel);
+                        cluster.centerX = cluster.pixels.reduce((sum, p) => sum + p.x, 0) / cluster.pixels.length;
+                        cluster.centerY = cluster.pixels.reduce((sum, p) => sum + p.y, 0) / cluster.pixels.length;
+                        foundCluster = true;
+                        break;
+                    }
+                }
+                
+                if (!foundCluster) {
+                    clusters.push({
+                        centerX: pixel.x,
+                        centerY: pixel.y,
+                        pixels: [pixel],
+                        pixelCount: 1
+                    });
+                }
+            });
+            
+            // Update pixel counts
+            clusters.forEach(cluster => {
+                cluster.pixelCount = cluster.pixels.length;
+            });
+            
+            return clusters;
+        }
+        
+        // Draw tracking
+        function drawTracking() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (!isTracking) return;
+            
+            const objects = detectMovement();
+            
+            // Filter by speed - only track fast-moving objects
+            let trackedObject = null;
+            
+            if (objects.length > 0 && lastPosition) {
+                // Find object that moved the most
+                let maxSpeed = 0;
+                
+                objects.forEach(obj => {
+                    const dx = obj.centerX - lastPosition.x;
+                    const dy = obj.centerY - lastPosition.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // Speed in pixels per frame
+                    if (distance > maxSpeed && distance > minSpeed) {
+                        maxSpeed = distance;
+                        trackedObject = obj;
+                    }
+                });
+            } else if (objects.length > 0) {
+                // First detection - pick largest object
+                trackedObject = objects.reduce((max, obj) => 
+                    obj.pixelCount > max.pixelCount ? obj : max
+                , objects[0]);
+            }
+            
+            if (trackedObject) {
+                const position = {
+                    x: trackedObject.centerX,
+                    y: trackedObject.centerY,
+                    time: Date.now()
+                };
+                
+                // Add to path
+                projectilePath.push(position);
+                lastPosition = position;
+                
+                // Keep only recent points
+                if (projectilePath.length > 90) {
+                    projectilePath.shift();
+                }
+                
+                document.getElementById('tracking').textContent = 'LOCKED ON!';
+                document.getElementById('tracking').style.color = '#ff0000';
+            } else {
+                document.getElementById('tracking').textContent = 'Searching...';
+                document.getElementById('tracking').style.color = '#00ff00';
+                
+                // Clear path if no detection for too long
+                if (lastPosition && Date.now() - lastPosition.time > 2000) {
+                    projectilePath = [];
+                    lastPosition = null;
+                }
+            }
+            
+            // Draw trail
+            if (projectilePath.length > 1) {
+                // Smooth line
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 5;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#00ff00';
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                
+                ctx.beginPath();
+                ctx.moveTo(projectilePath[0].x, projectilePath[0].y);
+                
+                for (let i = 1; i < projectilePath.length; i++) {
+                    ctx.lineTo(projectilePath[i].x, projectilePath[i].y);
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                
+                // Draw dots along path
+                projectilePath.forEach((point, i) => {
+                    const age = i / projectilePath.length;
+                    const size = 4 + age * 6;
+                    const alpha = 0.5 + age * 0.5;
+                    
+                    ctx.fillStyle = `rgba(0, 255, 0, ${alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(point.x, point.y, size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                
+                // Current position marker
+                const current = projectilePath[projectilePath.length - 1];
+                
+                // Red tracking box
+                ctx.strokeStyle = '#ff0000';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(current.x - 40, current.y - 40, 80, 80);
+                
+                // Crosshair
+                ctx.beginPath();
+                ctx.moveTo(current.x - 50, current.y);
+                ctx.lineTo(current.x + 50, current.y);
+                ctx.moveTo(current.x, current.y - 50);
+                ctx.lineTo(current.x, current.y + 50);
+                ctx.stroke();
+                
+                // Speed display
+                if (projectilePath.length > 3) {
+                    const recent = projectilePath.slice(-3);
+                    const dx = recent[2].x - recent[0].x;
+                    const dy = recent[2].y - recent[0].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const time = (recent[2].time - recent[0].time) / 1000;
+                    const speed = Math.round(dist / time);
+                    
+                    ctx.fillStyle = '#00ff00';
+                    ctx.font = 'bold 18px Arial';
+                    ctx.fillText(`${speed} px/s`, current.x + 45, current.y - 45);
+                }
+                
+                // Flight time
+                const flightTime = ((current.time - projectilePath[0].time) / 1000).toFixed(1);
+                ctx.fillStyle = '#00ff00';
+                ctx.font = 'bold 20px Arial';
+                ctx.shadowBlur = 5;
+                ctx.shadowColor = '#000';
+                ctx.fillText(`${flightTime}s`, current.x - 25, current.y + 55);
+                ctx.shadowBlur = 0;
+            }
+        }
+        
+        // Game loop
+        function loop() {
+            drawTracking();
+            
+            // Update FPS
+            frameCount++;
+            const now = Date.now();
+            if (now - lastFrameTime >= 1000) {
+                document.getElementById('fps').textContent = frameCount;
+                frameCount = 0;
+                lastFrameTime = now;
+            }
+            
+            requestAnimationFrame(loop);
+        }
+        
+        video.addEventListener('loadedmetadata', () => {
+            loop();
+        });
+    </script>
+</body>
+</html>
