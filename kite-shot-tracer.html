@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kite Shot Tracer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #000;
+            overflow: hidden;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            color: white;
+            font-size: 24px;
+            text-align: center;
+            padding: 40px;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        #overlay.hidden {
+            display: none;
+        }
+        
+        .big-btn {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 20px 50px;
+            border-radius: 15px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0, 255, 0, 0.5);
+        }
+        
+        .big-btn:active {
+            transform: scale(0.95);
+        }
+        
+        #stats {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #00ff00;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-family: 'Courier New', monospace;
+            z-index: 50;
+            border: 2px solid #00ff00;
+        }
+        
+        #stats div {
+            margin: 4px 0;
+        }
+        
+        .status-ready { color: #00ff00; }
+        .status-tracking { color: #ffaa00; animation: blink 1s infinite; }
+        .status-waiting { color: #888; }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            z-index: 50;
+        }
+        
+        .btn {
+            background: rgba(0, 0, 0, 0.8);
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .btn.active {
+            background: #00ff00;
+            color: #000;
+        }
+        
+        #launchZone {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 100px;
+            border: 3px dashed #00ff00;
+            border-radius: 50%;
+            pointer-events: none;
+            display: none;
+        }
+        
+        #launchZone.active {
+            display: block;
+            animation: pulse-zone 2s infinite;
+        }
+        
+        @keyframes pulse-zone {
+            0%, 100% { 
+                transform: translateX(-50%) scale(1);
+                opacity: 0.7;
+            }
+            50% { 
+                transform: translateX(-50%) scale(1.1);
+                opacity: 1;
+            }
+        }
+        
+        .instruction {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 255, 0, 0.9);
+            color: #000;
+            padding: 20px 40px;
+            border-radius: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 60;
+            display: none;
+            text-align: center;
+            max-width: 80%;
+        }
+        
+        .instruction.show {
+            display: block;
+            animation: fadeInOut 3s forwards;
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+        }
+    </style>
+</head>
+<body>
+    <div id="overlay">
+        <div style="max-width: 500px;">
+            <h1 style="margin-bottom: 20px;">🪁 Shot Tracer Mode</h1>
+            <p style="font-size: 16px; line-height: 1.6;">
+                <strong>How to use:</strong><br><br>
+                1. Mount or hold phone VERY STILL<br>
+                2. Point at your launch area<br>
+                3. Tap "Lock Background"<br>
+                4. Wait 3 seconds<br>
+                5. Launch your kite!<br><br>
+                App will track anything that moves against the locked background.
+            </p>
+        </div>
+        <button class="big-btn" id="startBtn">Start Camera</button>
+    </div>
+
+    <div id="container">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas"></canvas>
+        <div id="launchZone"></div>
+    </div>
+
+    <div id="stats">
+        <div><strong>MODE:</strong> <span id="mode" class="status-waiting">Waiting</span></div>
+        <div><strong>FPS:</strong> <span id="fps">0</span></div>
+        <div><strong>BACKGROUND:</strong> <span id="bgStatus">Not Locked</span></div>
+        <div><strong>TRACKING:</strong> <span id="tracking">--</span></div>
+    </div>
+
+    <div id="controls">
+        <button class="btn" id="lockBtn">Lock Background</button>
+        <button class="btn" id="resetBtn">Reset</button>
+    </div>
+
+    <div class="instruction" id="instruction"></div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let backgroundLocked = false;
+        let backgroundFrame = null;
+        let isTracking = false;
+        let projectilePath = [];
+        let frameCount = 0;
+        let lastFrameTime = Date.now();
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Show instruction
+        function showInstruction(text) {
+            const inst = document.getElementById('instruction');
+            inst.textContent = text;
+            inst.className = 'instruction show';
+            setTimeout(() => inst.className = 'instruction', 3000);
+        }
+        
+        // Start camera
+        document.getElementById('startBtn').addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        frameRate: { ideal: 60 }
+                    }
+                });
+                video.srcObject = stream;
+                document.getElementById('overlay').classList.add('hidden');
+                showInstruction('Hold phone STILL and tap "Lock Background"');
+                document.getElementById('mode').textContent = 'Ready';
+                document.getElementById('mode').className = 'status-ready';
+            } catch (err) {
+                alert('Camera error: ' + err.message);
+            }
+        });
+        
+        // Lock background
+        document.getElementById('lockBtn').addEventListener('click', () => {
+            if (backgroundLocked) {
+                // Unlock
+                backgroundLocked = false;
+                backgroundFrame = null;
+                projectilePath = [];
+                document.getElementById('lockBtn').textContent = 'Lock Background';
+                document.getElementById('lockBtn').classList.remove('active');
+                document.getElementById('bgStatus').textContent = 'Not Locked';
+                document.getElementById('launchZone').classList.remove('active');
+                document.getElementById('mode').textContent = 'Ready';
+                document.getElementById('mode').className = 'status-ready';
+            } else {
+                // Lock
+                showInstruction('Locking background in 3... 2... 1...');
+                setTimeout(() => {
+                    captureBackground();
+                    backgroundLocked = true;
+                    isTracking = true;
+                    document.getElementById('lockBtn').textContent = 'Unlock';
+                    document.getElementById('lockBtn').classList.add('active');
+                    document.getElementById('bgStatus').textContent = 'LOCKED ✓';
+                    document.getElementById('launchZone').classList.add('active');
+                    document.getElementById('mode').textContent = 'TRACKING';
+                    document.getElementById('mode').className = 'status-tracking';
+                    showInstruction('READY! Launch your kite now!');
+                }, 3000);
+            }
+        });
+        
+        // Reset
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            projectilePath = [];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            showInstruction('Trail cleared');
+        });
+        
+        // Capture background
+        function captureBackground() {
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Use medium resolution for balance of speed and accuracy
+            tempCanvas.width = 320;
+            tempCanvas.height = 240;
+            
+            tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+            backgroundFrame = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        }
+        
+        // Detect moving objects
+        function detectMovement() {
+            if (!backgroundLocked || !backgroundFrame) return null;
+            
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            tempCanvas.width = 320;
+            tempCanvas.height = 240;
+            
+            tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+            const currentFrame = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            
+            // Find differences
+            const movingPixels = [];
+            const threshold = 40; // Sensitivity for difference detection
+            
+            for (let i = 0; i < currentFrame.data.length; i += 4) {
+                const diffR = Math.abs(currentFrame.data[i] - backgroundFrame.data[i]);
+                const diffG = Math.abs(currentFrame.data[i + 1] - backgroundFrame.data[i + 1]);
+                const diffB = Math.abs(currentFrame.data[i + 2] - backgroundFrame.data[i + 2]);
+                const totalDiff = (diffR + diffG + diffB) / 3;
+                
+                if (totalDiff > threshold) {
+                    const pixelIndex = i / 4;
+                    const x = pixelIndex % tempCanvas.width;
+                    const y = Math.floor(pixelIndex / tempCanvas.width);
+                    
+                    movingPixels.push({
+                        x: (x / tempCanvas.width) * canvas.width,
+                        y: (y / tempCanvas.height) * canvas.height,
+                        intensity: totalDiff
+                    });
+                }
+            }
+            
+            if (movingPixels.length === 0) return null;
+            
+            // Find center of mass of moving pixels
+            const centerX = movingPixels.reduce((sum, p) => sum + p.x, 0) / movingPixels.length;
+            const centerY = movingPixels.reduce((sum, p) => sum + p.y, 0) / movingPixels.length;
+            
+            // Filter out small movements (noise)
+            if (movingPixels.length < 20) return null;
+            
+            return {
+                x: centerX,
+                y: centerY,
+                pixelCount: movingPixels.length,
+                time: Date.now()
+            };
+        }
+        
+        // Draw tracking
+        function drawTracking() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (!isTracking) return;
+            
+            const movement = detectMovement();
+            
+            if (movement) {
+                // Add to path
+                projectilePath.push(movement);
+                
+                // Keep only last 60 points (2 seconds at 30fps)
+                if (projectilePath.length > 60) {
+                    projectilePath.shift();
+                }
+                
+                document.getElementById('tracking').textContent = 'DETECTED!';
+                document.getElementById('tracking').style.color = '#ff0000';
+            } else {
+                document.getElementById('tracking').textContent = 'Waiting...';
+                document.getElementById('tracking').style.color = '#00ff00';
+            }
+            
+            // Draw trail
+            if (projectilePath.length > 0) {
+                // Draw the trail line
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 6;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#00ff00';
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                
+                ctx.beginPath();
+                ctx.moveTo(projectilePath[0].x, projectilePath[0].y);
+                
+                for (let i = 1; i < projectilePath.length; i++) {
+                    ctx.lineTo(projectilePath[i].x, projectilePath[i].y);
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                
+                // Draw trail points
+                projectilePath.forEach((point, i) => {
+                    const age = (projectilePath.length - i) / projectilePath.length;
+                    const alpha = 1 - age;
+                    const size = 6 + (1 - age) * 4;
+                    
+                    ctx.fillStyle = `rgba(0, 255, 0, ${alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(point.x, point.y, size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                
+                // Draw current position with box
+                const current = projectilePath[projectilePath.length - 1];
+                ctx.strokeStyle = '#ff0000';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(current.x - 30, current.y - 30, 60, 60);
+                
+                // Crosshair
+                ctx.strokeStyle = '#ff0000';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(current.x - 40, current.y);
+                ctx.lineTo(current.x + 40, current.y);
+                ctx.moveTo(current.x, current.y - 40);
+                ctx.lineTo(current.x, current.y + 40);
+                ctx.stroke();
+                
+                // Calculate and display speed
+                if (projectilePath.length > 5) {
+                    const recent = projectilePath.slice(-5);
+                    const dx = recent[4].x - recent[0].x;
+                    const dy = recent[4].y - recent[0].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const time = (recent[4].time - recent[0].time) / 1000;
+                    const speed = Math.round(dist / time);
+                    
+                    ctx.fillStyle = '#00ff00';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.fillText(`${speed} px/s`, current.x + 35, current.y - 35);
+                }
+                
+                // Flight time
+                if (projectilePath.length > 0) {
+                    const flightTime = ((Date.now() - projectilePath[0].time) / 1000).toFixed(1);
+                    ctx.fillStyle = '#00ff00';
+                    ctx.font = 'bold 18px Arial';
+                    ctx.fillText(`${flightTime}s`, current.x - 20, current.y + 50);
+                }
+            }
+            
+            // Auto-clear old trails
+            if (projectilePath.length > 0) {
+                const lastPoint = projectilePath[projectilePath.length - 1];
+                const timeSinceLastMovement = Date.now() - lastPoint.time;
+                
+                // If no movement for 3 seconds, clear trail
+                if (timeSinceLastMovement > 3000) {
+                    projectilePath = [];
+                }
+            }
+        }
+        
+        // Game loop
+        function loop() {
+            drawTracking();
+            
+            // Update FPS
+            frameCount++;
+            const now = Date.now();
+            if (now - lastFrameTime >= 1000) {
+                document.getElementById('fps').textContent = frameCount;
+                frameCount = 0;
+                lastFrameTime = now;
+            }
+            
+            requestAnimationFrame(loop);
+        }
+        
+        video.addEventListener('loadedmetadata', () => {
+            loop();
+        });
+    </script>
+</body>
+</html>
