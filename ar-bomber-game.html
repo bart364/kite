@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AR Bomber - Full Game</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Russo+One&family=Orbitron:wght@400;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background: #000;
+            overflow: hidden;
+            color: #0f0;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 100;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .screen.active {
+            display: flex;
+        }
+        
+        .screen h1 {
+            font-family: 'Russo One', sans-serif;
+            font-size: 36px;
+            color: #0f0;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px #0f0;
+        }
+        
+        .screen p {
+            font-size: 16px;
+            margin-bottom: 20px;
+            max-width: 400px;
+            line-height: 1.6;
+        }
+        
+        .big-btn {
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 20px 50px;
+            border-radius: 15px;
+            font-size: 22px;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: 'Russo One', sans-serif;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.5);
+            margin: 10px;
+        }
+        
+        .big-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .big-btn.secondary {
+            background: transparent;
+            border: 3px solid #0f0;
+            color: #0f0;
+        }
+        
+        #countdown {
+            font-family: 'Russo One', sans-serif;
+            font-size: 120px;
+            color: #0f0;
+            text-shadow: 0 0 50px #0f0;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+        
+        #hud {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #0f0;
+            border-radius: 10px;
+            padding: 15px;
+            z-index: 50;
+        }
+        
+        #hud div {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        .hud-label {
+            color: #0f0;
+            font-weight: bold;
+        }
+        
+        #controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 50;
+            display: flex;
+            gap: 15px;
+        }
+        
+        .btn {
+            background: rgba(0, 0, 0, 0.8);
+            color: #0f0;
+            border: 2px solid #0f0;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+        }
+        
+        .btn:active {
+            background: #0f0;
+            color: #000;
+        }
+        
+        .btn.primary {
+            background: #0f0;
+            color: #000;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+        }
+        
+        .target-marker {
+            position: absolute;
+            border: 4px solid #f00;
+            border-radius: 50%;
+            pointer-events: none;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
+        }
+        
+        .target-marker::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: #f00;
+            transform: translateY(-50%);
+        }
+        
+        .target-marker::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: #f00;
+            transform: translateX(-50%);
+        }
+        
+        .target-label {
+            position: absolute;
+            bottom: -35px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 0, 0, 0.9);
+            color: #fff;
+            padding: 5px 15px;
+            border-radius: 5px;
+            font-family: 'Russo One', sans-serif;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+        
+        #instruction {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 255, 0, 0.95);
+            color: #000;
+            padding: 20px 40px;
+            border-radius: 15px;
+            font-size: 20px;
+            font-weight: bold;
+            font-family: 'Russo One', sans-serif;
+            z-index: 60;
+            display: none;
+            text-align: center;
+        }
+        
+        #instruction.show {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+            to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+        
+        .flight-trail {
+            position: absolute;
+            pointer-events: none;
+        }
+        
+        .result-screen {
+            background: rgba(0, 0, 0, 0.95);
+        }
+        
+        .result-screen .score {
+            font-size: 72px;
+            color: #0f0;
+            font-family: 'Russo One', sans-serif;
+            text-shadow: 0 0 30px #0f0;
+            margin: 20px 0;
+        }
+        
+        .result-screen .detail {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Start Screen -->
+    <div class="screen active" id="startScreen">
+        <h1>🎯 AR BOMBER</h1>
+        <p>Tap targets to set up your strike zones, then launch your kite to score points!</p>
+        <p><strong>Flight time = more points!</strong></p>
+        <button class="big-btn" id="startBtn">START GAME</button>
+    </div>
+
+    <!-- Target Setup Screen -->
+    <div class="screen" id="setupScreen">
+        <h1>TAP TO SET TARGET</h1>
+        <p>Tap anywhere on screen to place your target</p>
+        <p><em>Larger/closer objects = fewer points<br>Smaller/farther objects = more points</em></p>
+        <button class="big-btn secondary" id="backToStartBtn">Back</button>
+    </div>
+
+    <!-- Countdown Screen -->
+    <div class="screen" id="countdownScreen">
+        <h1>GET READY!</h1>
+        <div id="countdown">3</div>
+        <p style="margin-top: 20px;">Launch your kite when you see GO!</p>
+    </div>
+
+    <!-- Hit/Miss Screen -->
+    <div class="screen" id="hitMissScreen">
+        <h1>DID YOU HIT THE TARGET?</h1>
+        <div style="display: flex; gap: 20px; margin-top: 30px;">
+            <button class="big-btn" id="hitBtn">✓ HIT!</button>
+            <button class="big-btn secondary" id="missBtn">✗ MISS</button>
+        </div>
+    </div>
+
+    <!-- Mark Start Screen -->
+    <div class="screen" id="markStartScreen">
+        <h1>TAP WHEN KITE APPEARS</h1>
+        <p>Watch the replay and tap the moment you first see the kite in flight</p>
+        <div id="videoPreview" style="width: 100%; max-width: 400px; height: 300px; background: #111; border: 2px solid #0f0; border-radius: 10px; margin: 20px 0;">
+            <p style="color: #0f0; padding: 20px;">Video preview would appear here<br>(Browser limitation - would work in native app)</p>
+        </div>
+        <button class="big-btn" id="continueWithoutVideoBtn">Continue Without Video</button>
+    </div>
+
+    <!-- Result Screen -->
+    <div class="screen" id="resultScreen">
+        <h1>🎉 STRIKE COMPLETE!</h1>
+        <div class="score" id="finalScore">+1250</div>
+        <div class="detail">
+            <div>Flight Time: <strong id="flightTimeDisplay">2.5s</strong></div>
+            <div>Time Bonus: <strong id="timeBonusDisplay">+250</strong></div>
+            <div>Target Points: <strong id="targetPointsDisplay">+1000</strong></div>
+        </div>
+        <div style="margin-top: 30px;">
+            <div class="detail">Launches Remaining: <strong id="launchesDisplay">2</strong></div>
+            <div class="detail">Total Score: <strong id="totalScoreDisplay">1250</strong></div>
+        </div>
+        <div style="margin-top: 30px; display: flex; gap: 15px;">
+            <button class="big-btn" id="nextLaunchBtn">Next Launch</button>
+            <button class="big-btn secondary" id="endGameBtn">End Game</button>
+        </div>
+    </div>
+
+    <!-- Game Container -->
+    <div id="container">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" style="display: none;">
+        <div><span class="hud-label">MODE:</span> <span id="gameMode">Setup</span></div>
+        <div><span class="hud-label">SCORE:</span> <span id="score">0</span></div>
+        <div><span class="hud-label">LAUNCHES:</span> <span id="launches">3</span></div>
+    </div>
+
+    <!-- Controls -->
+    <div id="controls" style="display: none;">
+        <button class="btn primary" id="launchBtn">LAUNCH STRIKE</button>
+        <button class="btn" id="resetTargetBtn">Clear Target</button>
+    </div>
+
+    <!-- Instruction Overlay -->
+    <div id="instruction"></div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let gameState = {
+            phase: 'start', // start, setup, countdown, flying, hitMiss, markStart, result
+            target: null,
+            launchTime: null,
+            landTime: null,
+            flightTime: 0,
+            score: 0,
+            launches: 3,
+            currentStrikePoints: 0
+        };
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+        
+        function showInstruction(text, duration = 2000) {
+            const inst = document.getElementById('instruction');
+            inst.textContent = text;
+            inst.classList.add('show');
+            setTimeout(() => inst.classList.remove('show'), duration);
+        }
+        
+        function updateHUD() {
+            document.getElementById('score').textContent = gameState.score;
+            document.getElementById('launches').textContent = gameState.launches;
+        }
+        
+        // Start game
+        document.getElementById('startBtn').addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
+                });
+                video.srcObject = stream;
+                showScreen('setupScreen');
+                gameState.phase = 'setup';
+                document.getElementById('hud').style.display = 'block';
+                updateHUD();
+            } catch (err) {
+                alert('Camera error: ' + err.message);
+            }
+        });
+        
+        // Back to start
+        document.getElementById('backToStartBtn').addEventListener('click', () => {
+            showScreen('startScreen');
+            gameState = {
+                phase: 'start',
+                target: null,
+                launchTime: null,
+                landTime: null,
+                flightTime: 0,
+                score: 0,
+                launches: 3,
+                currentStrikePoints: 0
+            };
+        });
+        
+        // Tap to set target
+        document.getElementById('setupScreen').addEventListener('click', (e) => {
+            if (e.target.id === 'backToStartBtn') return;
+            
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX;
+            const y = e.clientY;
+            
+            // Estimate size and distance (simplified)
+            const distanceFromBottom = canvas.height - y;
+            const estimatedDistance = distanceFromBottom / canvas.height; // 0 to 1
+            const estimatedSize = Math.random() * 100 + 50; // Random for demo
+            
+            // Calculate points (farther + smaller = more points)
+            const basePoints = Math.round((1 / (estimatedSize / 100)) * estimatedDistance * 1000);
+            
+            gameState.target = {
+                x: x,
+                y: y,
+                size: estimatedSize,
+                distance: estimatedDistance,
+                points: basePoints
+            };
+            
+            showScreen('setupScreen');
+            document.getElementById('controls').style.display = 'flex';
+            document.getElementById('gameMode').textContent = 'Target Set';
+            showInstruction('Target locked! Tap LAUNCH STRIKE when ready');
+            
+            drawTarget();
+        });
+        
+        // Draw target on canvas
+        function drawTarget() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (!gameState.target) return;
+            
+            const t = gameState.target;
+            
+            // Crosshair
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 4;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#ff0000';
+            
+            // Circle
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, t.size/2, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Cross lines
+            ctx.beginPath();
+            ctx.moveTo(t.x - t.size/2 - 20, t.y);
+            ctx.lineTo(t.x + t.size/2 + 20, t.y);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(t.x, t.y - t.size/2 - 20);
+            ctx.lineTo(t.x, t.y + t.size/2 + 20);
+            ctx.stroke();
+            
+            ctx.shadowBlur = 0;
+            
+            // Label
+            ctx.fillStyle = '#ff0000';
+            ctx.font = 'bold 24px Russo One';
+            ctx.textAlign = 'center';
+            ctx.fillText(t.points + ' PTS', t.x, t.y + t.size/2 + 40);
+        }
+        
+        // Launch button
+        document.getElementById('launchBtn').addEventListener('click', () => {
+            showScreen('countdownScreen');
+            gameState.phase = 'countdown';
+            startCountdown();
+        });
+        
+        // Reset target
+        document.getElementById('resetTargetBtn').addEventListener('click', () => {
+            gameState.target = null;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            document.getElementById('controls').style.display = 'none';
+            showInstruction('Tap to set a new target');
+        });
+        
+        // Countdown
+        function startCountdown() {
+            let count = 3;
+            const countdownEl = document.getElementById('countdown');
+            
+            const interval = setInterval(() => {
+                count--;
+                
+                if (count > 0) {
+                    countdownEl.textContent = count;
+                } else if (count === 0) {
+                    countdownEl.textContent = 'GO!';
+                    countdownEl.style.color = '#0f0';
+                } else {
+                    clearInterval(interval);
+                    gameState.launchTime = Date.now();
+                    gameState.phase = 'flying';
+                    showScreen('setupScreen');
+                    document.getElementById('setupScreen').style.display = 'none';
+                    document.getElementById('controls').style.display = 'none';
+                    document.getElementById('gameMode').textContent = 'FLYING...';
+                    
+                    // Show hit/miss buttons after 5 seconds
+                    setTimeout(() => {
+                        showScreen('hitMissScreen');
+                    }, 5000);
+                }
+            }, 1000);
+        }
+        
+        // Hit button
+        document.getElementById('hitBtn').addEventListener('click', () => {
+            gameState.landTime = Date.now();
+            gameState.flightTime = ((gameState.landTime - gameState.launchTime) / 1000).toFixed(2);
+            
+            // In real app, would show video playback here
+            showScreen('markStartScreen');
+        });
+        
+        // Miss button
+        document.getElementById('missBtn').addEventListener('click', () => {
+            showInstruction('MISS! No points awarded', 3000);
+            setTimeout(() => {
+                if (gameState.launches > 1) {
+                    resetForNextLaunch();
+                } else {
+                    endGame();
+                }
+            }, 3000);
+        });
+        
+        // Continue without video (simulates marking kite start)
+        document.getElementById('continueWithoutVideoBtn').addEventListener('click', () => {
+            // Simulate user tapping when kite appears
+            // In real app, they'd tap on video playback
+            
+            calculateScore();
+            showResultScreen();
+        });
+        
+        // Calculate score
+        function calculateScore() {
+            const flightTime = parseFloat(gameState.flightTime);
+            const timeBonus = Math.round(flightTime * 100);
+            const targetPoints = gameState.target.points;
+            const totalStrike = targetPoints + timeBonus;
+            
+            gameState.currentStrikePoints = totalStrike;
+            gameState.score += totalStrike;
+            gameState.launches--;
+            
+            return { flightTime, timeBonus, targetPoints, totalStrike };
+        }
+        
+        // Show result screen
+        function showResultScreen() {
+            const results = calculateScore();
+            
+            document.getElementById('finalScore').textContent = '+' + results.totalStrike;
+            document.getElementById('flightTimeDisplay').textContent = results.flightTime + 's';
+            document.getElementById('timeBonusDisplay').textContent = '+' + results.timeBonus;
+            document.getElementById('targetPointsDisplay').textContent = '+' + results.targetPoints;
+            document.getElementById('launchesDisplay').textContent = gameState.launches;
+            document.getElementById('totalScoreDisplay').textContent = gameState.score;
+            
+            // Draw flight trail
+            drawFlightTrail();
+            
+            showScreen('resultScreen');
+        }
+        
+        // Draw flight trail visualization
+        function drawFlightTrail() {
+            if (!gameState.target) return;
+            
+            // Simulate flight path from bottom center to target
+            const startX = canvas.width / 2;
+            const startY = canvas.height - 100;
+            const endX = gameState.target.x;
+            const endY = gameState.target.y;
+            
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 6;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#00ff00';
+            ctx.lineCap = 'round';
+            
+            // Draw curved path
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            
+            // Create arc
+            const controlX = (startX + endX) / 2;
+            const controlY = Math.min(startY, endY) - 100;
+            ctx.quadraticCurveTo(controlX, controlY, endX, endY);
+            ctx.stroke();
+            
+            ctx.shadowBlur = 0;
+            
+            // Draw dots along path
+            for (let i = 0; i <= 10; i++) {
+                const t = i / 10;
+                const x = Math.pow(1-t, 2) * startX + 2 * (1-t) * t * controlX + Math.pow(t, 2) * endX;
+                const y = Math.pow(1-t, 2) * startY + 2 * (1-t) * t * controlY + Math.pow(t, 2) * endY;
+                
+                ctx.fillStyle = '#00ff00';
+                ctx.beginPath();
+                ctx.arc(x, y, 5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Redraw target
+            drawTarget();
+        }
+        
+        // Next launch
+        document.getElementById('nextLaunchBtn').addEventListener('click', () => {
+            resetForNextLaunch();
+        });
+        
+        function resetForNextLaunch() {
+            gameState.target = null;
+            gameState.launchTime = null;
+            gameState.landTime = null;
+            gameState.flightTime = 0;
+            gameState.currentStrikePoints = 0;
+            gameState.phase = 'setup';
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            updateHUD();
+            
+            showScreen('setupScreen');
+            showInstruction('Tap to set your next target');
+        }
+        
+        // End game
+        document.getElementById('endGameBtn').addEventListener('click', () => {
+            endGame();
+        });
+        
+        function endGame() {
+            alert(`GAME OVER!\n\nFinal Score: ${gameState.score}\n\nThanks for playing!`);
+            location.reload();
+        }
+        
+        // Main render loop
+        function render() {
+            if (gameState.phase === 'flying' || gameState.phase === 'setup') {
+                drawTarget();
+            }
+            requestAnimationFrame(render);
+        }
+        
+        video.addEventListener('loadedmetadata', () => {
+            render();
+        });
+    </script>
+</body>
+</html>
