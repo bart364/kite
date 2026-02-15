@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kite Tracker Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #000;
+            overflow: hidden;
+            touch-action: none;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        #stats {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #0f0;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+            z-index: 1000;
+            max-width: 250px;
+            border: 2px solid #0f0;
+        }
+        
+        #stats div {
+            margin: 5px 0;
+        }
+        
+        .stat-label {
+            color: #0f0;
+            font-weight: bold;
+        }
+        
+        .stat-value {
+            color: #fff;
+        }
+        
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+        }
+        
+        .btn {
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        
+        .btn:active {
+            background: #0c0;
+        }
+        
+        .btn.recording {
+            background: #f00;
+            color: #fff;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        #startScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            color: #fff;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        #startScreen h1 {
+            font-size: 32px;
+            margin-bottom: 20px;
+            color: #0f0;
+        }
+        
+        #startScreen p {
+            font-size: 16px;
+            margin-bottom: 30px;
+            max-width: 400px;
+            line-height: 1.5;
+        }
+        
+        #startBtn {
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 20px 50px;
+            border-radius: 10px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        #colorPicker {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #0f0;
+            z-index: 1000;
+        }
+        
+        #colorPicker label {
+            color: #0f0;
+            font-size: 12px;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 10px;
+        }
+        
+        .color-option {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: 2px solid #0f0;
+            background: #000;
+            color: #0f0;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .color-option.active {
+            background: #0f0;
+            color: #000;
+        }
+        
+        #trail {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="startScreen">
+        <h1>🪁 Kite Tracker Test</h1>
+        <p>This app will track bright colored moving objects (like your thumb kites) in real-time.</p>
+        <p><strong>How to use:</strong><br>
+        1. Tap "Start Camera"<br>
+        2. Select your kite color<br>
+        3. Tap "Start Tracking"<br>
+        4. Launch a kite and watch it track!</p>
+        <button id="startBtn">Start Camera</button>
+    </div>
+
+    <div id="container">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="trail"></canvas>
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <div id="stats">
+        <div><span class="stat-label">STATUS:</span> <span class="stat-value" id="status">Waiting...</span></div>
+        <div><span class="stat-label">FPS:</span> <span class="stat-value" id="fps">0</span></div>
+        <div><span class="stat-label">Objects:</span> <span class="stat-value" id="objectCount">0</span></div>
+        <div><span class="stat-label">Tracking:</span> <span class="stat-value" id="tracking">NO</span></div>
+        <div><span class="stat-label">Position:</span> <span class="stat-value" id="position">--</span></div>
+        <div><span class="stat-label">Speed:</span> <span class="stat-value" id="speed">--</span></div>
+    </div>
+
+    <div id="colorPicker">
+        <label>KITE COLOR:</label>
+        <button class="color-option active" data-color="orange">🟠 Orange/Red</button>
+        <button class="color-option" data-color="pink">🩷 Pink</button>
+        <button class="color-option" data-color="yellow">🟡 Yellow</button>
+        <button class="color-option" data-color="green">🟢 Green</button>
+    </div>
+
+    <div id="controls">
+        <button class="btn" id="trackBtn">Start Tracking</button>
+        <button class="btn" id="resetBtn">Reset</button>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const trailCanvas = document.getElementById('trail');
+        const ctx = canvas.getContext('2d');
+        const trailCtx = trailCanvas.getContext('2d');
+        const startScreen = document.getElementById('startScreen');
+        const startBtn = document.getElementById('startBtn');
+        const trackBtn = document.getElementById('trackBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        let isTracking = false;
+        let frameCount = 0;
+        let lastFrameTime = Date.now();
+        let currentFPS = 0;
+        let selectedColor = 'orange';
+        let trackedObjects = [];
+        let trackingHistory = [];
+
+        // Color ranges for detection (HSV-like ranges in RGB)
+        const colorRanges = {
+            orange: { r: [180, 255], g: [60, 180], b: [0, 100] },
+            pink: { r: [200, 255], g: [100, 200], b: [150, 255] },
+            yellow: { r: [200, 255], g: [200, 255], b: [0, 150] },
+            green: { r: [0, 150], g: [150, 255], b: [0, 150] }
+        };
+
+        // Set canvas sizes
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            trailCanvas.width = window.innerWidth;
+            trailCanvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Color selection
+        document.querySelectorAll('.color-option').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.color-option').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedColor = btn.dataset.color;
+                updateStatus(`Color set to ${selectedColor}`);
+            });
+        });
+
+        // Start camera
+        startBtn.addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
+                });
+                video.srcObject = stream;
+                startScreen.style.display = 'none';
+                updateStatus('Camera ready');
+            } catch (err) {
+                alert('Camera access denied: ' + err.message);
+            }
+        });
+
+        // Start/Stop tracking
+        trackBtn.addEventListener('click', () => {
+            isTracking = !isTracking;
+            trackBtn.textContent = isTracking ? 'Stop Tracking' : 'Start Tracking';
+            trackBtn.classList.toggle('recording', isTracking);
+            
+            if (isTracking) {
+                updateStatus('Tracking active');
+                trackingHistory = [];
+            } else {
+                updateStatus('Tracking paused');
+            }
+        });
+
+        // Reset
+        resetBtn.addEventListener('click', () => {
+            trackingHistory = [];
+            trackedObjects = [];
+            trailCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+            updateStatus('Reset');
+        });
+
+        // Update status
+        function updateStatus(msg) {
+            document.getElementById('status').textContent = msg;
+        }
+
+        // Detect motion/color in frame
+        function detectObjects() {
+            if (!isTracking) return [];
+
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Use smaller resolution for faster processing
+            tempCanvas.width = 320;
+            tempCanvas.height = 240;
+            
+            tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            const data = imageData.data;
+            
+            const colorRange = colorRanges[selectedColor];
+            const detected = [];
+            const gridSize = 10; // Check every 10th pixel for speed
+            
+            for (let y = 0; y < tempCanvas.height; y += gridSize) {
+                for (let x = 0; x < tempCanvas.width; x += gridSize) {
+                    const i = (y * tempCanvas.width + x) * 4;
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    
+                    // Check if pixel matches selected color range
+                    if (r >= colorRange.r[0] && r <= colorRange.r[1] &&
+                        g >= colorRange.g[0] && g <= colorRange.g[1] &&
+                        b >= colorRange.b[0] && b <= colorRange.b[1]) {
+                        
+                        detected.push({
+                            x: (x / tempCanvas.width) * canvas.width,
+                            y: (y / tempCanvas.height) * canvas.height
+                        });
+                    }
+                }
+            }
+            
+            // Cluster nearby detections
+            if (detected.length > 0) {
+                return clusterPoints(detected);
+            }
+            
+            return [];
+        }
+
+        // Cluster nearby points into objects
+        function clusterPoints(points) {
+            if (points.length === 0) return [];
+            
+            const clusters = [];
+            const clusterRadius = 50;
+            
+            points.forEach(point => {
+                let addedToCluster = false;
+                
+                for (let cluster of clusters) {
+                    const dx = point.x - cluster.x;
+                    const dy = point.y - cluster.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < clusterRadius) {
+                        cluster.points.push(point);
+                        cluster.x = cluster.points.reduce((sum, p) => sum + p.x, 0) / cluster.points.length;
+                        cluster.y = cluster.points.reduce((sum, p) => sum + p.y, 0) / cluster.points.length;
+                        addedToCluster = true;
+                        break;
+                    }
+                }
+                
+                if (!addedToCluster) {
+                    clusters.push({
+                        x: point.x,
+                        y: point.y,
+                        points: [point]
+                    });
+                }
+            });
+            
+            // Only return clusters with enough points (filters noise)
+            return clusters.filter(c => c.points.length > 3);
+        }
+
+        // Draw tracking visualization
+        function drawTracking() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Detect objects
+            trackedObjects = detectObjects();
+            
+            // Update stats
+            document.getElementById('objectCount').textContent = trackedObjects.length;
+            document.getElementById('tracking').textContent = trackedObjects.length > 0 ? 'YES' : 'NO';
+            
+            // Draw bounding boxes and trails
+            trackedObjects.forEach((obj, index) => {
+                // Draw bounding box
+                ctx.strokeStyle = '#0f0';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(obj.x - 30, obj.y - 30, 60, 60);
+                
+                // Draw crosshair
+                ctx.beginPath();
+                ctx.moveTo(obj.x - 40, obj.y);
+                ctx.lineTo(obj.x + 40, obj.y);
+                ctx.moveTo(obj.x, obj.y - 40);
+                ctx.lineTo(obj.x, obj.y + 40);
+                ctx.stroke();
+                
+                // Draw label
+                ctx.fillStyle = '#0f0';
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText(`OBJECT ${index + 1}`, obj.x - 35, obj.y - 40);
+                
+                // Add to history
+                trackingHistory.push({ x: obj.x, y: obj.y, time: Date.now() });
+                
+                // Keep only last 30 points
+                if (trackingHistory.length > 30) {
+                    trackingHistory.shift();
+                }
+                
+                // Update position stats
+                document.getElementById('position').textContent = `${Math.round(obj.x)}, ${Math.round(obj.y)}`;
+                
+                // Calculate speed
+                if (trackingHistory.length > 2) {
+                    const recent = trackingHistory.slice(-5);
+                    const dx = recent[recent.length - 1].x - recent[0].x;
+                    const dy = recent[recent.length - 1].y - recent[0].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const time = (recent[recent.length - 1].time - recent[0].time) / 1000;
+                    const speed = dist / time;
+                    document.getElementById('speed').textContent = `${Math.round(speed)} px/s`;
+                }
+            });
+            
+            // Draw trail
+            if (trackingHistory.length > 1) {
+                trailCtx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
+                trailCtx.lineWidth = 3;
+                trailCtx.beginPath();
+                trailCtx.moveTo(trackingHistory[0].x, trackingHistory[0].y);
+                
+                for (let i = 1; i < trackingHistory.length; i++) {
+                    trailCtx.lineTo(trackingHistory[i].x, trackingHistory[i].y);
+                }
+                trailCtx.stroke();
+                
+                // Fade trail over time
+                trailCtx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                trailCtx.fillRect(0, 0, trailCanvas.width, trailCanvas.height);
+            }
+            
+            // Update FPS
+            frameCount++;
+            const now = Date.now();
+            if (now - lastFrameTime >= 1000) {
+                currentFPS = frameCount;
+                document.getElementById('fps').textContent = currentFPS;
+                frameCount = 0;
+                lastFrameTime = now;
+            }
+        }
+
+        // Main loop
+        function loop() {
+            drawTracking();
+            requestAnimationFrame(loop);
+        }
+
+        // Start when video is ready
+        video.addEventListener('loadedmetadata', () => {
+            loop();
+        });
+    </script>
+</body>
+</html>
